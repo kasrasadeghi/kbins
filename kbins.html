@@ -1,0 +1,161 @@
+<html>
+<head>
+  <style>
+    .bin-container {
+      display: flex;
+    }
+    .bin {
+      border: solid 1px black;
+      flex-grow: 1;
+      height: 500px;
+      /* border: 1px solid black; */
+      /* margin-bottom: 10;
+      margin-left: 0.5%;
+      margin-block-start: 0;
+      margin-block-end: 0; */
+    }
+    /* .item {
+      list-style: none;
+      margin-left: 2%;
+      padding-top: 0.5%;
+      padding-bottom: 0.5%;
+      border-bottom: 1px solid black;
+    }
+    .item:first-of-type {
+      border-top: 1px solid black;
+    } */
+    /* .brand {
+      color: #444
+    } */
+    .content {
+      margin-left: 2%;
+      margin-right: 2%;
+    }
+    .navbar {
+      display: flex;
+    }
+    .navbuttons {
+      list-style: none;
+      margin-block-start: 0;
+      margin-block-end: 0;
+    }
+    /* html {
+      padding-bottom: 90%;
+    } */
+  </style>
+  <script>
+  state = {};
+
+  let selected_node = null;
+
+  function patch(node, attrs) {
+    for (let field in attrs) {
+      node.setAttribute(field, attrs[field]);
+    }
+  };
+
+  function store() {
+    state = {};
+    let todo = document.getElementById('todo');
+    state.todo = [];
+    console.log(todo);
+    for (let item of todo.childNodes) {
+      state.todo.push(item.innerText);
+    }
+
+    let done = document.getElementById('done');
+    state.done = [];
+    for (let item of done.childNodes) {
+      state.done.push(item.innerText);
+    }
+
+    window.external.invoke(JSON.stringify(state, null, 2));
+  }
+
+  function load(event /* ignored */) {
+    // like a bad react {no tree-diff / update on click}
+
+    // shallow copy and replace itself
+    const clear = (id_name) => {
+      let node = document.getElementById(id_name);
+      let cNode = node.cloneNode(/*deep*/false);
+      node.parentNode.replaceChild(/*new*/cNode, /*old*/node);
+    };
+
+    // clear lists
+    clear('todo');
+    clear('done');
+
+    // get todo.json from c++
+    window.external.invoke('load');
+    // NOTE: invoke returns immediately (async)
+
+    // rerender in c++, not here, to ensure ordering
+  }
+
+  function dragstart(ev) {
+    let node = ev.target;
+    selected_node = node;
+    patch(selected_node, {style: 'color: grey'});
+    ev.dataTransfer.setData('text', ev.target.innerText);
+  };
+
+  function allowDrop(ev) {
+    ev.preventDefault();
+  };
+
+  function drop(ev) {
+    ev.preventDefault();
+    ev.target.appendChild(selected_node);
+    patch(selected_node, {style: 'color: black'});
+    selected_node = null;
+    store();
+  };
+
+  function render(data) {
+    let elem = (tagname, content = '', attrs = {}, children = null) => {
+      let node = document.createElement(tagname);
+      node.append(content);
+      patch(node, attrs);
+      if (children) {
+        for (let child of children) {
+          node.appendChild(child);
+        }
+      }
+      return node;
+    };
+
+    ul = document.getElementById('todo');
+    for (let item of data.todo) {
+      let todo = elem('li', item, {class: 'item', draggable: 'true', ondragstart: 'dragstart(event)'}); 
+      ul.appendChild(todo);
+    }
+
+    ul = document.getElementById('done');
+    for (let item of data.done) {
+      let todo = elem('li', item, {class: 'item', draggable: 'true', ondragstart: 'dragstart(event)'}); 
+      ul.appendChild(todo);
+    }
+  }
+
+  window.onload = () => {
+    load();
+  };
+  </script>
+</head>
+<body>
+  <div id='debug'></div>
+  <div class='content'>
+    <nav class='navbar'>
+      <a href='#' class='brand'>Todo</a>
+      <ul class='navbuttons' class=''>
+        <li><a href='#' class='navbutton' onclick='store(event);'>store</a></li>
+      </ul>
+    </nav>
+    <div class='bin-container'>
+      <ul id='todo' class='bin' ondrop='drop(event)' ondragover='allowDrop(event)'></ul>
+      <ul id='done' class='bin' ondrop='drop(event)' ondragover='allowDrop(event)'></ul>
+    </div>
+  </div>
+</body>
+</html>
